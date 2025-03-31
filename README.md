@@ -1,6 +1,6 @@
 # vesicletrackingmatlab
 vesicletrackingmatlab
-Let's break down this MATLAB code for a particle tracking GUI step-by-step, just like we did before.
+This MATLAB code for a particle tracking GUI step-by-step.
 
 1. Save the Code as a MATLAB Function:
 
