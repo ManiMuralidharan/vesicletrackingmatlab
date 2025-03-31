@@ -1,0 +1,97 @@
+function particle_tracking_GUI
+    % Create figure and UI components
+    fig = figure('Name', 'Particle Tracking GUI', 'NumberTitle', 'off', 'Position', [100, 100, 800, 600]);
+    ax = axes('Parent', fig, 'Position', [0.05, 0.3, 0.6, 0.65]);
+    btnLoad = uicontrol('Style', 'pushbutton', 'String', 'Load Image', 'Position', [650, 550, 120, 40], 'Callback', @loadImage);
+    btnSelectROI = uicontrol('Style', 'pushbutton', 'String', 'Select ROI', 'Position', [650, 500, 120, 40], 'Callback', @selectROI, 'Enable', 'off');
+    btnTrack = uicontrol('Style', 'pushbutton', 'String', 'Track & Plot', 'Position', [650, 450, 120, 40], 'Callback', @trackAndPlot, 'Enable', 'off');
+    btnSave = uicontrol('Style', 'pushbutton', 'String', 'Save Data', 'Position', [650, 400, 120, 40], 'Callback', @saveData, 'Enable', 'off');
+    
+    % Global variables
+    global imgStack ROI mask intensities;
+    imgStack = []; ROI = []; mask = []; intensities = [];
+    
+    function loadImage(~, ~)
+        try
+            [file, path] = uigetfile('*.tif', 'Select a Multi-Channel TIF File');
+            if isequal(file, 0)
+                return;
+            end
+            fullFileName = fullfile(path, file);
+            imgInfo = imfinfo(fullFileName);
+            numFrames = numel(imgInfo);
+            if numFrames < 2
+                msgbox('Error: Image must contain multiple frames.', 'Error', 'error');
+                return;
+            end
+            imgStack = zeros(imgInfo(1).Height, imgInfo(1).Width, numFrames, 'uint16');
+            for k = 1:numFrames
+                imgStack(:,:,k) = imread(fullFileName, k);
+            end
+            imshow(imgStack(:,:,1), [], 'Parent', ax);
+            title(ax, 'Loaded Image: Select ROI');
+            btnSelectROI.Enable = 'on';
+        catch ME
+            msgbox(['Error loading image: ', ME.message], 'Error', 'error');
+        end
+    end
+    
+    function selectROI(~, ~)
+        try
+            ROI = drawfreehand(ax);
+            if isempty(ROI)
+                msgbox('ROI selection failed. Please try again.', 'Error', 'error');
+                return;
+            end
+            mask = createMask(ROI);
+            btnTrack.Enable = 'on';
+        catch ME
+            msgbox(['Error selecting ROI: ', ME.message], 'Error', 'error');
+        end
+    end
+    
+    function trackAndPlot(~, ~)
+        try
+            numFrames = floor(size(imgStack, 3) / 2);
+            if numFrames < 1
+                msgbox('Error: Not enough frames for analysis.', 'Error', 'error');
+                return;
+            end
+            intensities = zeros(numFrames, 2);
+            for t = 1:numFrames
+                channel1 = imgStack(:,:,2*t - 1); % Odd frames: Channel 1
+                channel2 = imgStack(:,:,2*t);     % Even frames: Channel 2
+                intensities(t, 1) = mean(channel1(mask));
+                intensities(t, 2) = mean(channel2(mask));
+            end
+            
+            % Normalize data
+            normInt1 = (intensities(:,1) - min(intensities(:,1))) / (max(intensities(:,1)) - min(intensities(:,1)));
+            normInt2 = (intensities(:,2) - min(intensities(:,2))) / (max(intensities(:,2)) - min(intensities(:,2)));
+            
+            % Plot intensities
+            figure;
+            plot(1:numFrames, normInt1, 'r', 'LineWidth', 2); hold on;
+            plot(1:numFrames, normInt2, 'b', 'LineWidth', 2);
+            legend({'Channel 1', 'Channel 2'});
+            xlabel('Time'); ylabel('Normalized Intensity');
+            title('Intensity Over Time');
+            btnSave.Enable = 'on';
+        catch ME
+            msgbox(['Error tracking and plotting: ', ME.message], 'Error', 'error');
+        end
+    end
+    
+    function saveData(~, ~)
+        try
+            [file, path] = uiputfile('*.csv', 'Save Intensity Data');
+            if isequal(file, 0)
+                return;
+            end
+            csvwrite(fullfile(path, file), intensities);
+            msgbox('Data saved successfully.', 'Success', 'help');
+        catch ME
+            msgbox(['Error saving data: ', ME.message], 'Error', 'error');
+        end
+    end
+end
