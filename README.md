@@ -1,4 +1,6 @@
 # vesicletrackingmatlab
+# Author : Muralidharan Mani 
+# Affiliation : University of Wisconsin-Madison
 vesicletrackingmatlab
 This MATLAB code for a particle tracking GUI step-by-step.
 
